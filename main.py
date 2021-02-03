@@ -41,7 +41,7 @@ def open_browser():
     chrome_driver_path = '/usr/bin/chromedriver'
 
     if DEBUG:
-        chrome_driver_path = './chromedriver'
+        #chrome_driver_path = './chromedriver'
         # window size when run in headless mode.
         # this is necessary as some styles are dynamic
         chrome_options.add_argument('--window-size=800,600')
@@ -85,19 +85,24 @@ def execute():
     try:
         logger.debug('find and click on login button')
         el = WebDriverWait(browser, TIMEOUT).until(
-            EC.element_to_be_clickable((By.XPATH, "//a[@href='/login']"))
+            EC.element_to_be_clickable((By.XPATH, "//div[@id='user']/ul/li/a/span"))
+        )
+        el.click()
+
+        el = WebDriverWait(browser, TIMEOUT).until(
+            EC.element_to_be_clickable((By.XPATH, "//div[@id='login-with-epic']/div[2]/span/h6"))
         )
         el.click()
 
         logger.debug('wait for email field on login page')
         el = WebDriverWait(browser, TIMEOUT).until(
-            EC.element_to_be_clickable((By.ID, "usernameOrEmail"))
+            EC.element_to_be_clickable((By.XPATH, "//input[@id='email']"))
         )
 
         el.send_keys(EMAIL)
-        browser.find_element_by_id('password').send_keys(PASSWORD)
+        browser.find_element_by_xpath("//input[@id='password']").send_keys(PASSWORD)
         WebDriverWait(browser, TIMEOUT).until(
-            EC.element_to_be_clickable((By.ID, 'login'))
+            EC.element_to_be_clickable((By.XPATH, "//button[@id='sign-in']"))
         ).click()
 
         try:
