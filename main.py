@@ -41,7 +41,7 @@ def open_browser():
     chrome_driver_path = '/usr/bin/chromedriver'
 
     if DEBUG:
-        #chrome_driver_path = './chromedriver'
+        chrome_driver_path = './chromedriver'
         # window size when run in headless mode.
         # this is necessary as some styles are dynamic
         chrome_options.add_argument('--window-size=800,600')
@@ -110,7 +110,7 @@ def execute():
             WebDriverWait(browser, TIMEOUT).until(
                 EC.presence_of_element_located((
                     By.XPATH,
-                    '//iframe[@title="arkose-enforcement"]'
+                    '//iframe[@id="talon_frame_login_prod"]'
                 )))
             logger.critical('Captcha found. Can\'t procede any further.')
             return
