@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import pyotp
@@ -30,6 +31,14 @@ def read_env_variables():
     SLEEPTIME = int(os.getenv('SLEEPTIME') or -1)
     value = os.getenv('TOTP') or None
     TOTP = None if value is None else pyotp.TOTP(value)
+
+
+def loadCookies(chrome_driver):
+    with open('login.json', 'r') as inputdata:
+        cookies = json.load(inputdata)
+        for i in cookies:
+            print(i['name'])
+            chrome_driver.add_cookie({"name": i['name'], "value": i['value'], "domain": i['domain']})
 
 
 def open_browser():
@@ -88,90 +97,99 @@ def purchase_steps(browser):
     )
 
 
+def login(browser):
+    logger.debug('find and click on login button')
+    el = WebDriverWait(browser, TIMEOUT).until(
+        EC.element_to_be_clickable((
+            By.XPATH,
+            "//div[@id='user']/ul/li/a/span"
+        ))
+    )
+    el.click()
+
+    logger.debug('find and click on EpicGame login method')
+    el = WebDriverWait(browser, TIMEOUT).until(
+        EC.element_to_be_clickable((
+            By.XPATH,
+            "//div[@id='login-with-epic']/div[2]/span/h6"
+        ))
+    )
+    el.click()
+
+    logger.debug('wait for email field on login page')
+    el = WebDriverWait(browser, TIMEOUT).until(
+        EC.element_to_be_clickable((
+            By.XPATH,
+            "//input[@id='email']"
+        ))
+    )
+
+    el.send_keys(EMAIL)
+    browser.find_element_by_xpath(
+        "//input[@id='password']"
+    ).send_keys(PASSWORD)
+
+    WebDriverWait(browser, TIMEOUT).until(
+        EC.element_to_be_clickable((
+            By.XPATH,
+            "//button[@id='sign-in']"
+        ))
+    ).click()
+
+    try:
+        logger.debug('Checking for captcha')
+        WebDriverWait(browser, TIMEOUT).until(
+            EC.presence_of_element_located((
+                By.XPATH,
+                '//iframe[@id="talon_frame_login_prod"]'
+            ))
+        )
+        logger.critical('Captcha found. Can\'t procede any further.')
+        return
+    except TimeoutException:
+        logger.debug('captcha not detected.')
+
+    if TOTP is not None:
+        logger.debug('wait for 2fa field on login page')
+        el = WebDriverWait(browser, TIMEOUT).until(
+            EC.element_to_be_clickable((By.ID, "code"))
+        )
+        el.send_keys(TOTP.now())
+        logger.debug('logging in with 2FA')
+        browser.find_element_by_id('continue').click()
+
+    try:
+        # confirm login
+        logger.debug('search for wrong credentials message')
+        WebDriverWait(browser, TIMEOUT).until(
+            EC.visibility_of_element_located((
+                By.XPATH,
+                "//h6[contains(text(),'credentials') "
+                "and contains(text(),'invalid')]"
+            ))
+        )
+
+        logger.critical(
+            'failed to login into account, credentials invalid'
+        )
+        return
+    except TimeoutException:
+        logger.debug('login succeeded')
+        pass
+
+
 def execute():
     browser = open_browser()
     browser.get(FREE_GAMES_PAGE_URL)
+    loadCookies(browser)
+    browser.refresh()
 
     try:
-        logger.debug('find and click on login button')
-        el = WebDriverWait(browser, TIMEOUT).until(
-            EC.element_to_be_clickable((
-                By.XPATH,
-                "//div[@id='user']/ul/li/a/span"
-            ))
-        )
-        el.click()
+        browser.find_element_by_xpath("//a[@id='log-out']/span")
+    except NoSuchElementException:
+        login(browser)
 
-        logger.debug('find and click on EpicGame login method')
-        el = WebDriverWait(browser, TIMEOUT).until(
-            EC.element_to_be_clickable((
-                By.XPATH,
-                "//div[@id='login-with-epic']/div[2]/span/h6"
-            ))
-        )
-        el.click()
-
-        logger.debug('wait for email field on login page')
-        el = WebDriverWait(browser, TIMEOUT).until(
-            EC.element_to_be_clickable((
-                By.XPATH,
-                "//input[@id='email']"
-            ))
-        )
-
-        el.send_keys(EMAIL)
-        browser.find_element_by_xpath(
-            "//input[@id='password']"
-        ).send_keys(PASSWORD)
-
-        WebDriverWait(browser, TIMEOUT).until(
-            EC.element_to_be_clickable((
-                By.XPATH,
-                "//button[@id='sign-in']"
-            ))
-        ).click()
-
-        try:
-            logger.debug('Checking for captcha')
-            WebDriverWait(browser, TIMEOUT).until(
-                EC.presence_of_element_located((
-                    By.XPATH,
-                    '//iframe[@id="talon_frame_login_prod"]'
-                ))
-            )
-            logger.critical('Captcha found. Can\'t procede any further.')
-            return
-        except TimeoutException:
-            logger.debug('captcha not detected.')
-
-        if TOTP is not None:
-            logger.debug('wait for 2fa field on login page')
-            el = WebDriverWait(browser, TIMEOUT).until(
-                EC.element_to_be_clickable((By.ID, "code"))
-            )
-            el.send_keys(TOTP.now())
-            logger.debug('logging in with 2FA')
-            browser.find_element_by_id('continue').click()
-
-        try:
-            # confirm login
-            logger.debug('search for wrong credentials message')
-            WebDriverWait(browser, TIMEOUT).until(
-                EC.visibility_of_element_located((
-                    By.XPATH,
-                    "//h6[contains(text(),'credentials') "
-                    "and contains(text(),'invalid')]"
-                ))
-            )
-
-            logger.critical(
-                'failed to login into account, credentials invalid'
-            )
-            return
-        except TimeoutException:
-            logger.debug('login succeeded')
-            pass
-
+    try:
         try:
             # get free games available
             logger.debug('wait for and get all free games available')
@@ -231,9 +249,7 @@ def execute():
             purchase_button = WebDriverWait(browser, TIMEOUT).until(
                 EC.visibility_of_element_located((
                     By.XPATH,
-                    "//div[@id='dieselReactWrapper']/div/div[4]/main/div"
-                    "/div[3]/div[2]/div/div[2]/div[2]/div/div/div[3]"
-                    "/div/div/div/div[3]/div/div/button/span"
+                    "//a/div/div/div/div"
                 ))
             )
 
@@ -323,7 +339,7 @@ def execute():
         logger.info('all games processed')
     except (TimeoutException, NoSuchElementException, WebDriverException):
         logger.critical(traceback.format_exc())
-    browser.get('https://www.epicgames.com/logout')
+    #browser.get('https://www.epicgames.com/logout')
     browser.close()
 
 
