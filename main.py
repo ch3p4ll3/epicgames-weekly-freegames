@@ -1,4 +1,5 @@
 import json
+from json.decoder import JSONDecodeError
 import logging
 import os
 import pyotp
@@ -33,12 +34,27 @@ def read_env_variables():
     TOTP = None if value is None else pyotp.TOTP(value)
 
 
-def loadCookies(chrome_driver):
-    with open('login.json', 'r') as inputdata:
-        cookies = json.load(inputdata)
-        for i in cookies:
-            print(i['name'])
-            chrome_driver.add_cookie({"name": i['name'], "value": i['value'], "domain": i['domain']})
+def load_cookies(chrome_driver):
+    logger.info("trying to load cookies")
+    try:
+        with open('cookies.json', 'r') as cookies_file:
+            for i in json.load(cookies_file):
+                try:
+                    chrome_driver.add_cookie(
+                        {
+                            "name": i['name'],
+                            "value": i['value'],
+                            "domain": i['domain']
+                        }
+                    )
+                except (WebDriverException, KeyError):
+                    pass
+            logger.info("all cookies loaded, refreshing the page")
+            chrome_driver.refresh()
+    except FileNotFoundError:
+        logger.critical('cookies file not found')
+    except JSONDecodeError:
+        logger.critical('cookies file not correctly formatted')
 
 
 def open_browser():
@@ -145,7 +161,9 @@ def login(browser):
             ))
         )
         logger.critical('Captcha found. Can\'t procede any further.')
-        return
+        browser.close()
+        exit(0)
+
     except TimeoutException:
         logger.debug('captcha not detected.')
 
@@ -181,8 +199,7 @@ def login(browser):
 def execute():
     browser = open_browser()
     browser.get(FREE_GAMES_PAGE_URL)
-    loadCookies(browser)
-    browser.refresh()
+    load_cookies(browser)
 
     try:
         browser.find_element_by_xpath("//a[@id='log-out']/span")
@@ -231,14 +248,14 @@ def execute():
                 WebDriverWait(browser, TIMEOUT).until(
                     EC.visibility_of_element_located((
                         By.XPATH,
-                        "//p[contains(text(),'mature content')]"
+                        "//span[contains(text(),'mature content')]"
                     ))
                 )
 
                 WebDriverWait(browser, TIMEOUT).until(
                     EC.visibility_of_element_located((
                         By.XPATH,
-                        "//span[contains(text(),'Continue')]"
+                        "//button[contains(text(),'Continue')]"
                     ))
                 ).click()
 
@@ -249,16 +266,13 @@ def execute():
             purchase_button = WebDriverWait(browser, TIMEOUT).until(
                 EC.visibility_of_element_located((
                     By.XPATH,
-                    "//a/div/div/div/div"
+                    "//button[@data-testid='purchase-cta-button']"
                 ))
             )
 
             # name of the game
             logger.debug('extract game title')
-            name = browser.find_element_by_xpath(
-                "//div[@id='dieselReactWrapper']/div/div[4]/"
-                "main/div/div/div/nav/div/div/ul/li[2]"
-            ).text
+            name = browser.title
 
             # price formatted as '£11.99'
             logger.debug('extract game price')
@@ -339,7 +353,6 @@ def execute():
         logger.info('all games processed')
     except (TimeoutException, NoSuchElementException, WebDriverException):
         logger.critical(traceback.format_exc())
-    #browser.get('https://www.epicgames.com/logout')
     browser.close()
 
 
@@ -361,6 +374,8 @@ def main():
         logger.info('sleeping for %i seconds', SLEEPTIME)
         time.sleep(SLEEPTIME)
         execute()
+
+# TODO: test purchase steps xpaths
 
 
 if __name__ == '__main__':
