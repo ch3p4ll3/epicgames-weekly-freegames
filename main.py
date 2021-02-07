@@ -201,9 +201,12 @@ def execute():
     browser.get(FREE_GAMES_PAGE_URL)
     load_cookies(browser)
 
+    # Am I logged in?
     try:
+        # If there's the logout button then I'm logged in
         browser.find_element_by_xpath("//a[@id='log-out']/span")
     except NoSuchElementException:
+        # Else I have to login
         login(browser)
 
     try:
@@ -374,8 +377,6 @@ def main():
         logger.info('sleeping for %i seconds', SLEEPTIME)
         time.sleep(SLEEPTIME)
         execute()
-
-# TODO: test purchase steps xpaths
 
 
 if __name__ == '__main__':
