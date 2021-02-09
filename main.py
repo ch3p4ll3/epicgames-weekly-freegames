@@ -78,6 +78,37 @@ def open_browser():
 
 
 def purchase_steps(browser):
+
+    try:
+        # Search for license agreement popup and click it
+        logger.debug("find and accept license agreement")
+        WebDriverWait(browser, TIMEOUT).until(
+            EC.visibility_of_element_located((
+                By.ID,
+                "agree"
+            ))
+        ).click()
+
+        # Search and click Accept button
+        WebDriverWait(browser, TIMEOUT).until(
+            EC.visibility_of_element_located((
+                By.CSS_SELECTOR,
+                ".css-1b2j8lx"
+            ))
+        ).click()
+
+        # Click again the purchase button
+        logger.debug('find and clicking again the purchase button')
+        WebDriverWait(browser, TIMEOUT).until(
+            EC.visibility_of_element_located((
+                By.XPATH,
+                "//button[@data-testid='purchase-cta-button']"
+            ))
+        ).click()
+
+    except TimeoutException:
+        logger.debug("no license agreement found")
+
     # wait until its visible and then click the purchase button
     logger.debug('find and click on the last purchase button')
     WebDriverWait(browser, TIMEOUT).until(
@@ -114,43 +145,47 @@ def purchase_steps(browser):
 
 
 def login(browser):
-    logger.debug('find and click on login button')
-    el = WebDriverWait(browser, TIMEOUT).until(
-        EC.element_to_be_clickable((
-            By.XPATH,
-            "//div[@id='user']/ul/li/a/span"
-        ))
-    )
-    el.click()
+    try:
+        logger.debug('find and click on login button')
+        el = WebDriverWait(browser, TIMEOUT).until(
+            EC.element_to_be_clickable((
+                By.XPATH,
+                "//div[@id='user']/ul/li/a/span"
+            ))
+        )
+        el.click()
 
-    logger.debug('find and click on EpicGame login method')
-    el = WebDriverWait(browser, TIMEOUT).until(
-        EC.element_to_be_clickable((
-            By.XPATH,
-            "//div[@id='login-with-epic']/div[2]/span/h6"
-        ))
-    )
-    el.click()
+        logger.debug('find and click on EpicGame login method')
+        el = WebDriverWait(browser, TIMEOUT).until(
+            EC.element_to_be_clickable((
+                By.XPATH,
+                "//div[@id='login-with-epic']/div[2]/span/h6"
+            ))
+        )
+        el.click()
 
-    logger.debug('wait for email field on login page')
-    el = WebDriverWait(browser, TIMEOUT).until(
-        EC.element_to_be_clickable((
-            By.XPATH,
-            "//input[@id='email']"
-        ))
-    )
+        logger.debug('wait for email field on login page')
+        el = WebDriverWait(browser, TIMEOUT).until(
+            EC.element_to_be_clickable((
+                By.XPATH,
+                "//input[@id='email']"
+            ))
+        )
 
-    el.send_keys(EMAIL)
-    browser.find_element_by_xpath(
-        "//input[@id='password']"
-    ).send_keys(PASSWORD)
+        el.send_keys(EMAIL)
+        browser.find_element_by_xpath(
+            "//input[@id='password']"
+        ).send_keys(PASSWORD)
 
-    WebDriverWait(browser, TIMEOUT).until(
-        EC.element_to_be_clickable((
-            By.XPATH,
-            "//button[@id='sign-in']"
-        ))
-    ).click()
+        WebDriverWait(browser, TIMEOUT).until(
+            EC.element_to_be_clickable((
+                By.XPATH,
+                "//button[@id='sign-in']"
+            ))
+        ).click()
+
+    except TimeoutException:
+        logger.critical("Unable to locate login form")
 
     try:
         logger.debug('Checking for captcha')
@@ -190,7 +225,8 @@ def login(browser):
         logger.critical(
             'failed to login into account, credentials invalid'
         )
-        return
+        browser.close()
+        exit(0)
     except TimeoutException:
         logger.debug('login succeeded')
         pass
