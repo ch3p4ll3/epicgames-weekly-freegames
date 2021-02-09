@@ -35,7 +35,7 @@ def read_env_variables():
 
 
 def load_cookies(chrome_driver):
-    logger.info("trying to load cookies")
+    logger.debug("trying to load cookies")
     try:
         with open('cookies.json', 'r') as cookies_file:
             for i in json.load(cookies_file):
@@ -49,7 +49,7 @@ def load_cookies(chrome_driver):
                     )
                 except (WebDriverException, KeyError):
                     pass
-            logger.info("all cookies loaded, refreshing the page")
+            logger.debug("all cookies loaded, refreshing the page")
             chrome_driver.refresh()
     except FileNotFoundError:
         logger.critical('cookies file not found')
@@ -92,8 +92,8 @@ def purchase_steps(browser):
         # Search and click Accept button
         WebDriverWait(browser, TIMEOUT).until(
             EC.visibility_of_element_located((
-                By.CSS_SELECTOR,
-                ".css-1b2j8lx"
+                By.XPATH,
+                "//button[descendant::span[text()='Accept']]"
             ))
         ).click()
 
@@ -150,7 +150,7 @@ def login(browser):
         el = WebDriverWait(browser, TIMEOUT).until(
             EC.element_to_be_clickable((
                 By.XPATH,
-                "//div[@id='user']/ul/li/a/span"
+                "//div[@id='user']"
             ))
         )
         el.click()
@@ -159,7 +159,7 @@ def login(browser):
         el = WebDriverWait(browser, TIMEOUT).until(
             EC.element_to_be_clickable((
                 By.XPATH,
-                "//div[@id='login-with-epic']/div[2]/span/h6"
+                "//div[@id='login-with-epic']"
             ))
         )
         el.click()
@@ -311,7 +311,9 @@ def execute():
 
             # name of the game
             logger.debug('extract game title')
-            name = browser.title
+            name = browser.find_element_by_xpath(
+                "//h2[contains(@class,'NavigationVertical')]"
+            ).text
 
             # price formatted as '£11.99'
             logger.debug('extract game price')
@@ -351,10 +353,9 @@ def execute():
                     ))
                 )
 
-                editions_addons_titles = [i.text for i in
-                                          editions_addons_titles]
+                addons_titles = [i.text for i in editions_addons_titles]
 
-                for t in range(len(editions_addons_titles)):
+                for t in range(len(addons_titles)):
                     editions_addons_buttons = WebDriverWait(browser, TIMEOUT)
 
                     editions_addons_buttons.until(
@@ -369,7 +370,7 @@ def execute():
                     if editions_addons_buttons[t].text == 'OWNED':
                         logger.info(
                             '\"%s - %s\" already owned',
-                            name, editions_addons_titles[t]
+                            name, addons_titles[t]
                         )
 
                     elif editions_addons_buttons[t].text == 'GET':
@@ -378,7 +379,7 @@ def execute():
                         purchase_steps(browser)
 
                         logger.info('obtained \"%s - %s\"',
-                                    name, editions_addons_titles[t])
+                                    name, addons_titles[t])
 
                         browser.execute_script("window.history.go(-1)")
             else:
