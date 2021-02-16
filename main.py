@@ -155,6 +155,10 @@ def login(browser):
         )
         el.click()
 
+    except TimeoutException:
+        logger.critical("Unable to locate login button")
+
+    try:
         logger.debug('find and click on EpicGame login method')
         el = WebDriverWait(browser, TIMEOUT).until(
             EC.element_to_be_clickable((
@@ -163,7 +167,10 @@ def login(browser):
             ))
         )
         el.click()
+    except TimeoutException:
+        logger.critical("Unable to locate login with EpiGames button")
 
+    try:
         logger.debug('wait for email field on login page')
         el = WebDriverWait(browser, TIMEOUT).until(
             EC.element_to_be_clickable((
@@ -185,7 +192,7 @@ def login(browser):
         ).click()
 
     except TimeoutException:
-        logger.critical("Unable to locate login form")
+        logger.critical("Unable to locate login forms")
 
     try:
         logger.debug('Checking for captcha')
@@ -267,7 +274,7 @@ def execute():
                 "//button[@id='onetrust-accept-btn-handler']"
             ).click()
 
-        except NoSuchElementException:
+        except (NoSuchElementException, TimeoutException):
             logger.debug('no cookies banner to close')
 
         for i in range(len(games_found)):
